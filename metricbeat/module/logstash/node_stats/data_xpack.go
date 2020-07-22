@@ -28,9 +28,26 @@ import (
 	"github.com/elastic/beats/metricbeat/mb"
 )
 
+type jvm struct {
+	GC  map[string]interface{} `json:"gc"`
+	Mem struct {
+		HeapMaxInBytes  int `json:"heap_max_in_bytes"`
+		HeapUsedInBytes int `json:"heap_used_in_bytes"`
+		HeapUsedPercent int `json:"heap_used_percent"`
+	} `json:"mem"`
+	UptimeInMillis int `json:"uptime_in_millis"`
+}
+
+type events struct {
+	DurationInMillis int `json:"duration_in_millis"`
+	In               int `json:"in"`
+	Filtered         int `json:"filtered"`
+	Out              int `json:"out"`
+}
+
 type commonStats struct {
-	Events  map[string]interface{} `json:"events"`
-	JVM     map[string]interface{} `json:"jvm"`
+	Events  events                 `json:"events"`
+	JVM     jvm                    `json:"jvm"`
 	Reloads map[string]interface{} `json:"reloads"`
 	Queue   struct {
 		EventsCount int `json:"events_count"`
@@ -48,21 +65,35 @@ type process struct {
 	CPU                 cpu `json:"cpu"`
 }
 
+type cgroup struct {
+	CPUAcct map[string]interface{} `json:"cpuacct"`
+	CPU     struct {
+		Stat         map[string]interface{} `json:"stat"`
+		ControlGroup string                 `json:"control_group"`
+	} `json:"cpu"`
+}
+
 type os struct {
-	CPU cpu `json:"cpu"`
+	CPU    cpu    `json:"cpu"`
+	CGroup cgroup `json:"cgroup,omitempty"`
+}
+
+type pipeline struct {
+	BatchSize int `json:"batch_size"`
+	Workers   int `json:"workers"`
 }
 
 type nodeInfo struct {
-	ID          string                 `json:"id,omitempty"`
-	UUID        string                 `json:"uuid"`
-	EphemeralID string                 `json:"ephemeral_id"`
-	Name        string                 `json:"name"`
-	Host        string                 `json:"host"`
-	Version     string                 `json:"version"`
-	Snapshot    bool                   `json:"snapshot"`
-	Status      string                 `json:"status"`
-	HTTPAddress string                 `json:"http_address"`
-	Pipeline    map[string]interface{} `json:"pipeline"`
+	ID          string   `json:"id,omitempty"`
+	UUID        string   `json:"uuid"`
+	EphemeralID string   `json:"ephemeral_id"`
+	Name        string   `json:"name"`
+	Host        string   `json:"host"`
+	Version     string   `json:"version"`
+	Snapshot    bool     `json:"snapshot"`
+	Status      string   `json:"status"`
+	HTTPAddress string   `json:"http_address"`
+	Pipeline    pipeline `json:"pipeline"`
 }
 
 type reloads struct {
@@ -75,6 +106,7 @@ type NodeStats struct {
 	nodeInfo
 	commonStats
 	Process   process                  `json:"process"`
+	OS        os                       `json:"os"`
 	Pipelines map[string]PipelineStats `json:"pipelines"`
 }
 
@@ -124,6 +156,7 @@ func eventMappingXPack(r mb.ReporterV2, m *MetricSet, content []byte) error {
 		cpu{
 			LoadAverage: nodeStats.Process.CPU.LoadAverage,
 		},
+		nodeStats.OS.CGroup,
 	}
 
 	var pipelines []PipelineStats
